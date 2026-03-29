@@ -571,6 +571,7 @@
         }
 
         window[JSONP_CALLBACK_NAME] = function(data) {
+          console.log('JSONP callback fired', data);
           try {
             latestData = normalizeData(data);
             fillViewOptions();
