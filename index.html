@@ -570,11 +570,7 @@ function loadData() {
       jsonpTimer = null;
     }
 
-    const callbackName =
-      'eventMonitorJsonp_' +
-      Date.now() +
-      '_' +
-      Math.random().toString(36).slice(2);
+    const callbackName = 'testCallback';;
 
     const separator = GAS_URL.includes('?') ? '&' : '?';
     const src =
