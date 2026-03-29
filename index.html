@@ -5,291 +5,1213 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>イベント進行モニター</title>
   <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #111827;
+      --panel-2: #1f2937;
+      --line: #334155;
+      --text: #f8fafc;
+      --sub: #cbd5e1;
+      --accent: #38bdf8;
+      --ok: #16a34a;
+      --warn: #f59e0b;
+      --danger: #ef4444;
+      --pause: #3b82f6;
+      --muted: #6b7280;
+      --chip: #0b1220;
+      --shadow: 0 10px 24px rgba(0,0,0,.28);
+      --radius: 16px;
+    }
+
+    * { box-sizing: border-box; }
+
     body {
       margin: 0;
-      font-family: sans-serif;
-      background: #111827;
-      color: #f9fafb;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: linear-gradient(180deg, #0b1020 0%, var(--bg) 100%);
+      color: var(--text);
     }
-    header {
-      padding: 16px 20px;
-      background: #1f2937;
-      border-bottom: 1px solid #374151;
+
+    a { color: inherit; }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      backdrop-filter: blur(10px);
+      background: rgba(15, 23, 42, .88);
+      border-bottom: 1px solid rgba(148, 163, 184, .18);
     }
-    h1 {
-      margin: 0 0 8px;
-      font-size: 24px;
-    }
-    .sub {
-      color: #d1d5db;
-      font-size: 14px;
-    }
-    .wrap {
-      padding: 16px;
+
+    .topbar-inner {
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 14px 16px;
       display: grid;
+      grid-template-columns: 1.2fr 2fr;
       gap: 16px;
+      align-items: center;
     }
-    .card {
-      background: #1f2937;
+
+    .title-wrap h1 {
+      margin: 0;
+      font-size: 1.45rem;
+      line-height: 1.25;
+    }
+
+    .title-meta {
+      margin-top: 4px;
+      color: var(--sub);
+      font-size: .92rem;
+    }
+
+    .controls {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    select, button, .chip {
+      border: 1px solid #475569;
+      background: var(--panel);
+      color: var(--text);
       border-radius: 12px;
+      padding: 10px 12px;
+      font-size: .92rem;
+    }
+
+    button {
+      cursor: pointer;
+      transition: .18s ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      border-color: #64748b;
+    }
+
+    .status-row {
+      max-width: 1440px;
+      margin: 16px auto 0;
+      padding: 0 16px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+
+    .metric {
+      background: rgba(17, 24, 39, .9);
+      border: 1px solid rgba(148, 163, 184, .15);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      box-shadow: var(--shadow);
+    }
+
+    .metric-label {
+      color: var(--sub);
+      font-size: .86rem;
+      margin-bottom: 6px;
+    }
+
+    .metric-value {
+      font-size: 1.15rem;
+      font-weight: 700;
+    }
+
+    .page {
+      max-width: 1440px;
+      margin: 16px auto 32px;
+      padding: 0 16px;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      gap: 16px;
+      align-items: start;
+    }
+
+    .sidepanel,
+    .section {
+      background: rgba(17, 24, 39, .92);
+      border: 1px solid rgba(148, 163, 184, .14);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+
+    .sidepanel {
+      position: sticky;
+      top: 104px;
       padding: 16px;
-      box-shadow: 0 4px 12px rgba(0,0,0,.2);
     }
-    .grid-2 {
+
+    .sidepanel h2,
+    .section h2 {
+      margin: 0 0 12px;
+      font-size: 1rem;
+    }
+
+    .side-block + .side-block {
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid rgba(148, 163, 184, .15);
+    }
+
+    .toggle-list {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    label.toggle {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: .92rem;
+      color: var(--text);
+    }
+
+    .hint {
+      color: var(--sub);
+      font-size: .84rem;
+      line-height: 1.5;
+    }
+
+    .sections {
+      display: grid;
       gap: 16px;
     }
-    .grid-3 {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 16px;
+
+    .section {
+      overflow: hidden;
     }
-    .badge {
-      display: inline-block;
-      padding: 4px 8px;
+
+    .section.dragging {
+      opacity: .55;
+      outline: 2px dashed var(--accent);
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 14px 16px;
+      background: rgba(31, 41, 55, .85);
+      border-bottom: 1px solid rgba(148, 163, 184, .12);
+      cursor: grab;
+      user-select: none;
+    }
+
+    .section-header:active { cursor: grabbing; }
+
+    .section-tools {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--sub);
+      font-size: .84rem;
+    }
+
+    .section-body {
+      padding: 16px;
+    }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .card {
+      background: var(--panel-2);
+      border: 1px solid rgba(148, 163, 184, .12);
+      border-radius: 14px;
+      padding: 14px;
+    }
+
+    .card-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+      font-weight: 700;
+    }
+
+    .subline {
+      color: var(--sub);
+      font-size: .88rem;
+      margin-top: 4px;
+    }
+
+    .kv {
+      display: grid;
+      gap: 6px;
+      margin-top: 10px;
+      font-size: .93rem;
+    }
+
+    .row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 9px;
       border-radius: 999px;
-      font-size: 12px;
-      font-weight: bold;
+      background: var(--chip);
+      font-size: .8rem;
     }
-    .green { background: #065f46; }
-    .yellow { background: #92400e; }
-    .red { background: #991b1b; }
-    .blue { background: #1d4ed8; }
-    .gray { background: #4b5563; }
 
-    .status-open { color: #34d399; }
-    .status-busy { color: #fbbf24; }
-    .status-full { color: #f87171; }
-    .status-paused { color: #60a5fa; }
-    .status-closed { color: #9ca3af; }
+    .chip.ok { border-color: rgba(34,197,94,.5); color: #86efac; }
+    .chip.warn { border-color: rgba(245,158,11,.5); color: #fcd34d; }
+    .chip.danger { border-color: rgba(239,68,68,.5); color: #fca5a5; }
+    .chip.pause { border-color: rgba(59,130,246,.5); color: #93c5fd; }
+    .chip.muted { border-color: rgba(107,114,128,.5); color: #d1d5db; }
 
-    .alert-info { border-left: 6px solid #60a5fa; }
-    .alert-warn { border-left: 6px solid #f59e0b; }
-    .alert-critical { border-left: 6px solid #ef4444; }
+    .list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .list-item {
+      background: var(--panel-2);
+      border: 1px solid rgba(148, 163, 184, .12);
+      border-radius: 14px;
+      padding: 12px 14px;
+    }
+
+    .list-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 8px;
+    }
 
     .small {
-      font-size: 12px;
-      color: #cbd5e1;
+      font-size: .82rem;
+      color: var(--sub);
     }
 
-    .timeline-item, .booth-item, .session-item {
-      padding: 10px 0;
-      border-bottom: 1px solid #374151;
-    }
-    .timeline-item:last-child,
-    .booth-item:last-child,
-    .session-item:last-child {
-      border-bottom: none;
+    .empty {
+      color: var(--sub);
+      padding: 8px 0;
     }
 
-    @media (max-width: 900px) {
-      .grid-2, .grid-3 {
+    .alert-box {
+      border-left: 6px solid var(--accent);
+    }
+
+    .alert-info { border-left-color: #60a5fa; }
+    .alert-warn { border-left-color: #f59e0b; }
+    .alert-critical { border-left-color: #ef4444; }
+
+    .toolbar-line {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .toolbar-line + .toolbar-line {
+      margin-top: 10px;
+    }
+
+    @media (max-width: 1100px) {
+      .topbar-inner,
+      .layout {
         grid-template-columns: 1fr;
+      }
+
+      .status-row {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .sidepanel {
+        position: static;
+      }
+    }
+
+    @media (max-width: 760px) {
+      .cards,
+      .status-row {
+        grid-template-columns: 1fr;
+      }
+
+      .controls {
+        justify-content: flex-start;
+      }
+
+      .topbar-inner {
+        padding-bottom: 12px;
       }
     }
   </style>
 </head>
 <body>
-  <header>
-    <h1 id="eventName">読み込み中...</h1>
-    <div class="sub" id="eventMeta"></div>
-    <div class="sub" id="publicMessage"></div>
-  </header>
-
-  <div class="wrap">
-    <div class="grid-3">
-      <div class="card">
-        <div class="small">現在フェーズ</div>
-        <div id="currentPhase">-</div>
+  <div class="topbar">
+    <div class="topbar-inner">
+      <div class="title-wrap">
+        <h1 id="eventName">読み込み中...</h1>
+        <div class="title-meta" id="eventMeta">-</div>
+        <div class="title-meta" id="publicMessage">-</div>
       </div>
-      <div class="card">
-        <div class="small">次の重要項目</div>
-        <div id="nextImportant">-</div>
-      </div>
-      <div class="card">
-        <div class="small">最終更新</div>
-        <div id="generatedAt">-</div>
-      </div>
-    </div>
-
-    <div class="card">
-      <h2>重要アラート</h2>
-      <div id="alerts">アラートなし</div>
-    </div>
-
-    <div class="grid-2">
-      <div class="card">
-        <h2>ブース状況</h2>
-        <div id="booths">読み込み中...</div>
-      </div>
-
-      <div class="card">
-        <h2>今後の進行</h2>
-        <div id="timeline">読み込み中...</div>
+      <div class="controls">
+        <select id="viewSelect" title="表示モード"></select>
+        <select id="boothSortSelect" title="ブース並び順">
+          <option value="status_priority">ブース: 状態優先</option>
+          <option value="wait_desc">ブース: 待機人数が多い順</option>
+          <option value="wait_asc">ブース: 待機人数が少ない順</option>
+          <option value="name_asc">ブース: 名前順</option>
+          <option value="next_start_asc">ブース: 次回開始時刻順</option>
+        </select>
+        <select id="timelineSortSelect" title="進行並び順">
+          <option value="time_asc">進行: 時刻順</option>
+          <option value="priority_desc">進行: 緊急度順</option>
+          <option value="status_priority">進行: 状態優先</option>
+        </select>
+        <button id="resetLayoutBtn">並び・表示を初期化</button>
       </div>
     </div>
+  </div>
 
-    <div class="card">
-      <h2>体験枠</h2>
-      <div id="sessions">読み込み中...</div>
+  <div class="status-row">
+    <div class="metric">
+      <div class="metric-label">現在フェーズ</div>
+      <div class="metric-value" id="currentPhase">-</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">次の重要項目</div>
+      <div class="metric-value" id="nextImportant">-</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">アクティブアラート数</div>
+      <div class="metric-value" id="activeAlertCount">-</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">最終更新</div>
+      <div class="metric-value" id="generatedAt">-</div>
+    </div>
+  </div>
+
+  <div class="page">
+    <div class="layout">
+      <aside class="sidepanel">
+        <div class="side-block">
+          <h2>表示ブロック</h2>
+          <div class="toggle-list" id="sectionToggles"></div>
+        </div>
+
+        <div class="side-block">
+          <h2>絞り込み</h2>
+          <div class="toolbar-line">
+            <select id="boothFilterSelect" style="width:100%">
+              <option value="">全ブース表示</option>
+            </select>
+          </div>
+          <div class="toolbar-line">
+            <label class="toggle">
+              <input type="checkbox" id="onlyActiveAlerts" />
+              アクティブなアラートのみ表示
+            </label>
+          </div>
+        </div>
+
+        <div class="side-block">
+          <h2>使い方</h2>
+          <div class="hint">
+            ・上のプルダウンで表示モードを切り替えできます。<br>
+            ・各ブロックはドラッグで並び替えできます。<br>
+            ・表示ON/OFF、並び順、選択中のビューはこの端末に保存されます。<br>
+            ・別の人の端末には影響しません。
+          </div>
+        </div>
+      </aside>
+
+      <main>
+        <div class="sections" id="sectionsRoot">
+          <section class="section" data-section-id="alerts" draggable="true">
+            <div class="section-header">
+              <h2>重要アラート</h2>
+              <div class="section-tools">ドラッグで移動</div>
+            </div>
+            <div class="section-body">
+              <div id="alertsContainer" class="list"></div>
+            </div>
+          </section>
+
+          <section class="section" data-section-id="booths" draggable="true">
+            <div class="section-header">
+              <h2>ブース状況</h2>
+              <div class="section-tools">ドラッグで移動</div>
+            </div>
+            <div class="section-body">
+              <div id="boothsContainer" class="cards"></div>
+            </div>
+          </section>
+
+          <section class="section" data-section-id="sessions" draggable="true">
+            <div class="section-header">
+              <h2>体験枠</h2>
+              <div class="section-tools">ドラッグで移動</div>
+            </div>
+            <div class="section-body">
+              <div id="sessionsContainer" class="list"></div>
+            </div>
+          </section>
+
+          <section class="section" data-section-id="timeline" draggable="true">
+            <div class="section-header">
+              <h2>進行タイムライン</h2>
+              <div class="section-tools">ドラッグで移動</div>
+            </div>
+            <div class="section-body">
+              <div id="timelineContainer" class="list"></div>
+            </div>
+          </section>
+
+          <section class="section" data-section-id="tasks" draggable="true">
+            <div class="section-header">
+              <h2>運営タスク</h2>
+              <div class="section-tools">ドラッグで移動</div>
+            </div>
+            <div class="section-body">
+              <div id="tasksContainer" class="list"></div>
+            </div>
+          </section>
+
+          <section class="section" data-section-id="staff" draggable="true">
+            <div class="section-header">
+              <h2>スタッフ配置</h2>
+              <div class="section-tools">ドラッグで移動</div>
+            </div>
+            <div class="section-body">
+              <div id="staffContainer" class="cards"></div>
+            </div>
+          </section>
+        </div>
+      </main>
     </div>
   </div>
 
   <script>
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbwBrRjRpHwSq88GIRJToNCwm8JgAc1pqPL-Q0BxOCY10fxRhcDAqA4WyhVvGYkWR5rV/exec";
-    let refreshSeconds = 10;
+    const GAS_URL = 'YOUR_GAS_WEBAPP_URL?mode=public';
+    let refreshTimer = null;
+    let jsonpScript = null;
+    let jsonpTimer = null;
+    const JSONP_CALLBACK_NAME = '__eventMonitorJsonpCallback';
+    const STORAGE_KEY = 'event_monitor_layout_v1';
 
-    async function loadData() {
+    const DEFAULT_SECTIONS = ['alerts', 'booths', 'sessions', 'timeline', 'tasks', 'staff'];
+
+    const DEFAULT_VIEWS = [
+      {
+        viewId: 'public_main',
+        label: '来場者向け',
+        sections: ['alerts', 'booths', 'sessions', 'timeline'],
+        sort: {
+          booths: 'status_priority',
+          timeline: 'time_asc'
+        },
+        filters: {
+          boothId: ''
+        }
+      },
+      {
+        viewId: 'staff_shogi',
+        label: '将棋ブース運営向け',
+        sections: ['alerts', 'sessions', 'tasks', 'staff', 'timeline', 'booths'],
+        sort: {
+          booths: 'next_start_asc',
+          timeline: 'time_asc'
+        },
+        filters: {
+          boothId: 'shogi_01'
+        }
+      },
+      {
+        viewId: 'honbu',
+        label: '本部向け',
+        sections: ['alerts', 'timeline', 'booths', 'tasks', 'staff', 'sessions'],
+        sort: {
+          booths: 'status_priority',
+          timeline: 'priority_desc'
+        },
+        filters: {
+          boothId: ''
+        }
+      }
+    ];
+
+    let latestData = null;
+    let refreshTimer = null;
+    let dragSource = null;
+
+    const state = loadState();
+
+    async function boot() {
+      bindStaticEvents();
+      await loadData();
+    }
+
+    function loadData() {
       try {
-        const res = await fetch(GAS_URL, { cache: "no-store" });
-        const data = await res.json();
+        if (jsonpScript) {
+          jsonpScript.remove();
+          jsonpScript = null;
+        }
+        if (jsonpTimer) {
+          clearTimeout(jsonpTimer);
+          jsonpTimer = null;
+        }
 
-        refreshSeconds = data?.meta?.refreshSeconds || 10;
+        window[JSONP_CALLBACK_NAME] = function(data) {
+          try {
+            latestData = normalizeData(data);
+            fillViewOptions();
+            fillBoothFilterOptions();
+            syncControlsFromState();
+            renderAll();
+            resetRefreshTimer();
+          } catch (error) {
+            console.error(error);
+            document.getElementById('eventName').textContent = 'データの読み込みに失敗しました';
+          } finally {
+            if (jsonpScript) {
+              jsonpScript.remove();
+              jsonpScript = null;
+            }
+            if (jsonpTimer) {
+              clearTimeout(jsonpTimer);
+              jsonpTimer = null;
+            }
+          }
+        };
 
-        renderMeta(data);
-        renderAlerts(data.alerts || []);
-        renderBooths(data.booths || []);
-        renderTimeline(data.timeline || []);
-        renderSessions(data.sessions || []);
+        const separator = GAS_URL.includes('?') ? '&' : '?';
+        const src = `${GAS_URL}${separator}callback=${encodeURIComponent(JSONP_CALLBACK_NAME)}&_ts=${Date.now()}`;
 
-      } catch (err) {
-        console.error(err);
-        document.getElementById("eventName").textContent = "読み込み失敗";
+        jsonpScript = document.createElement('script');
+        jsonpScript.src = src;
+        jsonpScript.async = true;
+        jsonpScript.onerror = function() {
+          console.error('JSONP load failed:', src);
+          document.getElementById('eventName').textContent = 'データの読み込みに失敗しました';
+          if (jsonpScript) {
+            jsonpScript.remove();
+            jsonpScript = null;
+          }
+          if (jsonpTimer) {
+            clearTimeout(jsonpTimer);
+            jsonpTimer = null;
+          }
+        };
+
+        jsonpTimer = setTimeout(() => {
+          console.error('JSONP timeout:', src);
+          document.getElementById('eventName').textContent = 'データの読み込みに失敗しました';
+          if (jsonpScript) {
+            jsonpScript.remove();
+            jsonpScript = null;
+          }
+        }, 10000);
+
+        document.body.appendChild(jsonpScript);
+      } catch (error) {
+        console.error(error);
+        document.getElementById('eventName').textContent = 'データの読み込みに失敗しました';
       }
     }
 
-    function renderMeta(data) {
-      const meta = data.meta || {};
-      const summary = data.summary || {};
-
-      document.getElementById("eventName").textContent = meta.eventName || "イベント進行モニター";
-      document.getElementById("eventMeta").textContent =
-        `${meta.eventDate || ""} / ${meta.venueName || ""}`;
-      document.getElementById("publicMessage").textContent = meta.publicMessage || "";
-
-      document.getElementById("currentPhase").textContent = toPhaseLabel(meta.currentPhase);
-
-      const next = summary.nextImportantItem;
-      document.getElementById("nextImportant").textContent =
-        next ? `${next.startTime || ""} ${next.title || ""}` : "なし";
-
-      document.getElementById("generatedAt").textContent =
-        summary.generatedAt || data.generatedAt || "-";
+    function normalizeData(data) {
+      const cloned = structuredCloneSafe(data);
+      cloned.views = Array.isArray(cloned.views) && cloned.views.length ? cloned.views : DEFAULT_VIEWS;
+      cloned.meta = cloned.meta || {};
+      cloned.summary = cloned.summary || {};
+      cloned.alerts = Array.isArray(cloned.alerts) ? cloned.alerts : [];
+      cloned.booths = Array.isArray(cloned.booths) ? cloned.booths : [];
+      cloned.sessions = Array.isArray(cloned.sessions) ? cloned.sessions : [];
+      cloned.timeline = Array.isArray(cloned.timeline) ? cloned.timeline : [];
+      cloned.tasks = Array.isArray(cloned.tasks) ? cloned.tasks : [];
+      cloned.staff = Array.isArray(cloned.staff) ? cloned.staff : [];
+      return cloned;
     }
 
-    function renderAlerts(alerts) {
-      const el = document.getElementById("alerts");
-      if (!alerts.length) {
-        el.innerHTML = "<div>現在アラートはありません</div>";
-        return;
-      }
-
-      el.innerHTML = alerts.map(alert => `
-        <div class="card alert-${escapeHtml(alert.level || 'info')}" style="margin-bottom:12px;">
-          <div><strong>${escapeHtml(alert.title || '')}</strong></div>
-          <div>${escapeHtml(alert.message || '')}</div>
-        </div>
-      `).join("");
+    function structuredCloneSafe(value) {
+      return JSON.parse(JSON.stringify(value || {}));
     }
 
-    function renderBooths(booths) {
-      const el = document.getElementById("booths");
-      if (!booths.length) {
-        el.innerHTML = "<div>表示対象のブースがありません</div>";
-        return;
-      }
-
-      el.innerHTML = booths.map(booth => `
-        <div class="booth-item">
-          <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;">
-            <strong>${escapeHtml(booth.boothName || '')}</strong>
-            <span class="badge ${colorClass(booth.displayColor)}">${escapeHtml(booth.currentStatus || '')}</span>
-          </div>
-          <div class="small">${escapeHtml(booth.areaName || '')} / ${escapeHtml(booth.locationText || '')}</div>
-          <div>現在: <span class="${statusClass(booth.currentStatus)}">${escapeHtml(booth.currentProgram || '-')}</span></div>
-          <div>待機人数: ${num(booth.waitCount)} / 定員: ${num(booth.capacity)} / 参加中: ${num(booth.occupiedCount)}</div>
-          <div>次回: ${escapeHtml(booth.nextStartTime || '-')}</div>
-          <div>${escapeHtml(booth.publicNote || '')}</div>
-        </div>
-      `).join("");
+    function inferModeFromSelectedView() {
+      const selectedView = getSelectedView();
+      const needsOps = ['tasks', 'staff'].some(id => (selectedView?.sections || []).includes(id));
+      return needsOps ? 'ops' : 'public';
     }
 
-    function renderTimeline(timeline) {
-      const el = document.getElementById("timeline");
-      if (!timeline.length) {
-        el.innerHTML = "<div>進行データがありません</div>";
-        return;
-      }
-
-      el.innerHTML = timeline.map(item => `
-        <div class="timeline-item">
-          <div><strong>${escapeHtml(item.startTime || '')} - ${escapeHtml(item.endTime || '')}</strong></div>
-          <div>${escapeHtml(item.title || '')}</div>
-          <div class="small">状態: ${escapeHtml(item.status || '')} / 担当: ${escapeHtml(item.owner || '')}</div>
-        </div>
-      `).join("");
+    function getSelectedView() {
+      const views = latestData?.views || DEFAULT_VIEWS;
+      return views.find(v => v.viewId === state.selectedViewId) || views[0];
     }
 
-    function renderSessions(sessions) {
-      const el = document.getElementById("sessions");
-      if (!sessions.length) {
-        el.innerHTML = "<div>体験枠データがありません</div>";
-        return;
-      }
-
-      el.innerHTML = sessions.map(session => `
-        <div class="session-item">
-          <div style="display:flex;justify-content:space-between;gap:12px;">
-            <strong>${escapeHtml(session.title || '')}</strong>
-            <span>${escapeHtml(session.status || '')}</span>
-          </div>
-          <div>${escapeHtml(session.startTime || '')} - ${escapeHtml(session.endTime || '')}</div>
-          <div>予約 ${num(session.reservedCount)} / 定員 ${num(session.capacity)} / 受付 ${num(session.checkedInCount)}</div>
-          <div class="small">${escapeHtml(session.publicNote || '')}</div>
-        </div>
-      `).join("");
-    }
-
-    function toPhaseLabel(value) {
-      const map = {
-        pre_open: "開場前",
-        open: "受付中",
-        running: "進行中",
-        paused: "一時停止",
-        closing: "閉場準備",
-        closed: "終了"
+    function loadState() {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      const defaults = {
+        selectedViewId: 'public_main',
+        sectionOrder: [...DEFAULT_SECTIONS],
+        sectionVisibility: Object.fromEntries(DEFAULT_SECTIONS.map(id => [id, true])),
+        boothSort: 'status_priority',
+        timelineSort: 'time_asc',
+        boothFilter: '',
+        onlyActiveAlerts: true
       };
-      return map[value] || value || "-";
+
+      if (!raw) return defaults;
+
+      try {
+        const parsed = JSON.parse(raw);
+        return {
+          ...defaults,
+          ...parsed,
+          sectionOrder: Array.isArray(parsed.sectionOrder) ? parsed.sectionOrder : defaults.sectionOrder,
+          sectionVisibility: { ...defaults.sectionVisibility, ...(parsed.sectionVisibility || {}) }
+        };
+      } catch {
+        return defaults;
+      }
     }
 
-    function statusClass(status) {
-      const s = String(status || "").toLowerCase();
-      return `status-${s}`;
+    function saveState() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     }
 
-    function colorClass(color) {
-      const c = String(color || "").toLowerCase();
-      if (["green", "yellow", "red", "blue"].includes(c)) return c;
-      return "gray";
+    function fillViewOptions() {
+      const select = document.getElementById('viewSelect');
+      const views = latestData?.views || DEFAULT_VIEWS;
+      select.innerHTML = views.map(view => `<option value="${escapeHtml(view.viewId)}">${escapeHtml(view.label || view.viewId)}</option>`).join('');
+
+      if (!views.some(view => view.viewId === state.selectedViewId)) {
+        state.selectedViewId = views[0]?.viewId || 'public_main';
+        saveState();
+      }
+
+      select.value = state.selectedViewId;
+    }
+
+    function fillBoothFilterOptions() {
+      const select = document.getElementById('boothFilterSelect');
+      const booths = latestData?.booths || [];
+      select.innerHTML = ['<option value="">全ブース表示</option>']
+        .concat(booths.map(booth => `<option value="${escapeHtml(booth.boothId)}">${escapeHtml(booth.boothName || booth.boothId)}</option>`))
+        .join('');
+      select.value = state.boothFilter || '';
+    }
+
+    function syncControlsFromState() {
+      document.getElementById('boothSortSelect').value = state.boothSort;
+      document.getElementById('timelineSortSelect').value = state.timelineSort;
+      document.getElementById('viewSelect').value = state.selectedViewId;
+      document.getElementById('boothFilterSelect').value = state.boothFilter || '';
+      document.getElementById('onlyActiveAlerts').checked = !!state.onlyActiveAlerts;
+    }
+
+    function bindStaticEvents() {
+      document.getElementById('viewSelect').addEventListener('change', event => {
+        state.selectedViewId = event.target.value;
+        applySelectedViewPreset();
+        saveState();
+        renderAll();
+      });
+
+      document.getElementById('boothSortSelect').addEventListener('change', event => {
+        state.boothSort = event.target.value;
+        saveState();
+        renderAll();
+      });
+
+      document.getElementById('timelineSortSelect').addEventListener('change', event => {
+        state.timelineSort = event.target.value;
+        saveState();
+        renderAll();
+      });
+
+      document.getElementById('boothFilterSelect').addEventListener('change', event => {
+        state.boothFilter = event.target.value;
+        saveState();
+        renderAll();
+      });
+
+      document.getElementById('onlyActiveAlerts').addEventListener('change', event => {
+        state.onlyActiveAlerts = event.target.checked;
+        saveState();
+        renderAll();
+      });
+
+      document.getElementById('resetLayoutBtn').addEventListener('click', () => {
+        localStorage.removeItem(STORAGE_KEY);
+        Object.assign(state, loadState());
+        applySelectedViewPreset();
+        syncControlsFromState();
+        renderAll();
+      });
+
+      setupDragAndDrop();
+    }
+
+    function applySelectedViewPreset() {
+      const view = getSelectedView();
+      if (!view) return;
+
+      const visible = Object.fromEntries(DEFAULT_SECTIONS.map(id => [id, false]));
+      (view.sections || []).forEach(id => { visible[id] = true; });
+
+      state.sectionVisibility = { ...state.sectionVisibility, ...visible };
+      state.sectionOrder = mergeSectionOrder(view.sections || DEFAULT_SECTIONS, state.sectionOrder || DEFAULT_SECTIONS);
+      state.boothSort = view?.sort?.booths || state.boothSort || 'status_priority';
+      state.timelineSort = view?.sort?.timeline || state.timelineSort || 'time_asc';
+      state.boothFilter = view?.filters?.boothId ?? state.boothFilter;
+      syncControlsFromState();
+    }
+
+    function mergeSectionOrder(preferred, current) {
+      const combined = [];
+      const seen = new Set();
+      [...preferred, ...current, ...DEFAULT_SECTIONS].forEach(id => {
+        if (!DEFAULT_SECTIONS.includes(id) || seen.has(id)) return;
+        seen.add(id);
+        combined.push(id);
+      });
+      return combined;
+    }
+
+    function renderAll() {
+      if (!latestData) return;
+      renderMeta();
+      renderSectionToggles();
+      renderSectionOrderAndVisibility();
+      renderAlerts();
+      renderBooths();
+      renderSessions();
+      renderTimeline();
+      renderTasks();
+      renderStaff();
+    }
+
+    function renderMeta() {
+      const meta = latestData.meta || {};
+      const summary = latestData.summary || {};
+
+      document.getElementById('eventName').textContent = meta.eventName || 'イベント進行モニター';
+      document.getElementById('eventMeta').textContent = `${meta.eventDate || ''} / ${meta.venueName || ''}`;
+      document.getElementById('publicMessage').textContent = meta.publicMessage || '';
+      document.getElementById('currentPhase').textContent = phaseLabel(meta.currentPhase);
+      document.getElementById('nextImportant').textContent = summary.nextImportantItem
+        ? `${summary.nextImportantItem.startTime || ''} ${summary.nextImportantItem.title || ''}`.trim()
+        : 'なし';
+      document.getElementById('activeAlertCount').textContent = String(summary.activeAlertCount ?? latestData.alerts.length ?? 0);
+      document.getElementById('generatedAt').textContent = formatDateTime(summary.generatedAt || latestData.generatedAt || new Date().toISOString());
+    }
+
+    function renderSectionToggles() {
+      const container = document.getElementById('sectionToggles');
+      container.innerHTML = state.sectionOrder.map(sectionId => {
+        return `
+          <label class="toggle">
+            <input type="checkbox" data-section-toggle="${escapeHtml(sectionId)}" ${state.sectionVisibility[sectionId] ? 'checked' : ''}>
+            ${escapeHtml(sectionLabel(sectionId))}
+          </label>
+        `;
+      }).join('');
+
+      container.querySelectorAll('[data-section-toggle]').forEach(input => {
+        input.addEventListener('change', event => {
+          const id = event.target.dataset.sectionToggle;
+          state.sectionVisibility[id] = event.target.checked;
+          saveState();
+          renderSectionOrderAndVisibility();
+        });
+      });
+    }
+
+    function renderSectionOrderAndVisibility() {
+      const root = document.getElementById('sectionsRoot');
+      const sectionMap = Object.fromEntries([...root.querySelectorAll('.section')].map(el => [el.dataset.sectionId, el]));
+
+      state.sectionOrder.forEach(id => {
+        const el = sectionMap[id];
+        if (el) root.appendChild(el);
+      });
+
+      DEFAULT_SECTIONS.forEach(id => {
+        const el = sectionMap[id];
+        if (!el) return;
+        el.style.display = state.sectionVisibility[id] ? '' : 'none';
+      });
+    }
+
+    function renderAlerts() {
+      let alerts = [...latestData.alerts];
+      const boothId = effectiveBoothFilter();
+      if (state.onlyActiveAlerts) {
+        alerts = alerts.filter(alert => alert.isActive !== false);
+      }
+      if (boothId) {
+        alerts = alerts.filter(alert => !alert.boothId || alert.boothId === boothId);
+      }
+
+      const container = document.getElementById('alertsContainer');
+      if (!alerts.length) {
+        container.innerHTML = '<div class="empty">表示できるアラートはありません</div>';
+        return;
+      }
+
+      container.innerHTML = alerts.map(alert => `
+        <div class="list-item alert-box alert-${escapeHtml(alert.level || 'info')}">
+          <div class="list-head">
+            <strong>${escapeHtml(alert.title || '(無題)')}</strong>
+            <span class="chip ${alertLevelChip(alert.level)}">${escapeHtml(alert.level || 'info')}</span>
+          </div>
+          <div>${escapeHtml(alert.message || '')}</div>
+          <div class="small">対象: ${escapeHtml(alert.targetScope || 'all')} ${alert.boothId ? '/ ' + escapeHtml(alert.boothId) : ''}</div>
+        </div>
+      `).join('');
+    }
+
+    function renderBooths() {
+      let booths = [...latestData.booths];
+      const boothId = effectiveBoothFilter();
+      if (boothId) booths = booths.filter(booth => booth.boothId === boothId);
+      booths = sortBooths(booths, state.boothSort);
+
+      const container = document.getElementById('boothsContainer');
+      if (!booths.length) {
+        container.innerHTML = '<div class="empty">表示できるブースがありません</div>';
+        return;
+      }
+
+      container.innerHTML = booths.map(booth => `
+        <article class="card">
+          <div class="card-title">
+            <span>${escapeHtml(booth.boothName || booth.boothId)}</span>
+            <span class="chip ${statusChipClass(booth.currentStatus)}">${escapeHtml(statusLabel(booth.currentStatus))}</span>
+          </div>
+          <div class="subline">${escapeHtml(booth.areaName || '')}${booth.locationText ? ' / ' + escapeHtml(booth.locationText) : ''}</div>
+          <div class="kv">
+            <div class="row"><span>現在の内容</span><span>${escapeHtml(booth.currentProgram || '-')}</span></div>
+            <div class="row"><span>待機人数</span><span>${num(booth.waitCount)}人</span></div>
+            <div class="row"><span>参加中</span><span>${num(booth.occupiedCount)} / ${num(booth.capacity)}</span></div>
+            <div class="row"><span>次回開始</span><span>${escapeHtml(booth.nextStartTime || '-')}</span></div>
+            <div class="row"><span>対象</span><span>${escapeHtml(booth.targetAudience || '-')}</span></div>
+          </div>
+          ${booth.publicNote ? `<div class="subline">${escapeHtml(booth.publicNote)}</div>` : ''}
+        </article>
+      `).join('');
+    }
+
+    function renderSessions() {
+      let sessions = [...latestData.sessions];
+      const boothId = effectiveBoothFilter();
+      if (boothId) sessions = sessions.filter(session => session.boothId === boothId);
+      sessions.sort((a, b) => compareTime(a.startTime, b.startTime));
+
+      const container = document.getElementById('sessionsContainer');
+      if (!sessions.length) {
+        container.innerHTML = '<div class="empty">表示できる体験枠がありません</div>';
+        return;
+      }
+
+      container.innerHTML = sessions.map(session => `
+        <div class="list-item">
+          <div class="list-head">
+            <strong>${escapeHtml(session.title || '(無題)')}</strong>
+            <span class="chip ${statusChipClass(session.status)}">${escapeHtml(statusLabel(session.status))}</span>
+          </div>
+          <div>${escapeHtml(session.startTime || '-')} - ${escapeHtml(session.endTime || '-')}</div>
+          <div class="small">定員 ${num(session.capacity)} / 予約 ${num(session.reservedCount)} / 受付 ${num(session.checkedInCount)}</div>
+          ${session.publicNote ? `<div class="subline">${escapeHtml(session.publicNote)}</div>` : ''}
+        </div>
+      `).join('');
+    }
+
+    function renderTimeline() {
+      let timeline = [...latestData.timeline];
+      const boothId = effectiveBoothFilter();
+      if (boothId) timeline = timeline.filter(item => !item.boothId || item.boothId === boothId);
+      timeline = sortTimeline(timeline, state.timelineSort);
+
+      const container = document.getElementById('timelineContainer');
+      if (!timeline.length) {
+        container.innerHTML = '<div class="empty">表示できる進行項目がありません</div>';
+        return;
+      }
+
+      container.innerHTML = timeline.map(item => `
+        <div class="list-item">
+          <div class="list-head">
+            <strong>${escapeHtml(item.title || '(無題)')}</strong>
+            <span class="chip ${statusChipClass(item.status)}">${escapeHtml(statusLabel(item.status))}</span>
+          </div>
+          <div>${escapeHtml(item.startTime || '-')} - ${escapeHtml(item.endTime || '-')}</div>
+          <div class="small">カテゴリ: ${escapeHtml(item.category || '-')} / 担当: ${escapeHtml(item.owner || '-')} / 優先度: ${escapeHtml(item.priority || '-')}</div>
+          ${item.note ? `<div class="subline">${escapeHtml(item.note)}</div>` : ''}
+        </div>
+      `).join('');
+    }
+
+    function renderTasks() {
+      const container = document.getElementById('tasksContainer');
+      if (!Array.isArray(latestData.tasks) || !latestData.tasks.length) {
+        container.innerHTML = '<div class="empty">運営タスクはありません</div>';
+        return;
+      }
+
+      let tasks = [...latestData.tasks];
+      const boothId = effectiveBoothFilter();
+      if (boothId) tasks = tasks.filter(task => !task.boothId || task.boothId === boothId);
+      tasks.sort((a, b) => priorityWeight(b.priority) - priorityWeight(a.priority) || compareTime(a.dueTime, b.dueTime));
+
+      container.innerHTML = tasks.map(task => `
+        <div class="list-item">
+          <div class="list-head">
+            <strong>${escapeHtml(task.taskName || '(無題)')}</strong>
+            <span class="chip ${statusChipClass(task.status)}">${escapeHtml(statusLabel(task.status))}</span>
+          </div>
+          <div class="small">期限: ${escapeHtml(task.dueTime || '-')} / 担当: ${escapeHtml(task.assignee || '-')} / 優先度: ${escapeHtml(task.priority || '-')}</div>
+          ${task.note ? `<div class="subline">${escapeHtml(task.note)}</div>` : ''}
+        </div>
+      `).join('');
+    }
+
+    function renderStaff() {
+      const container = document.getElementById('staffContainer');
+      if (!Array.isArray(latestData.staff) || !latestData.staff.length) {
+        container.innerHTML = '<div class="empty">スタッフ情報はありません</div>';
+        return;
+      }
+
+      let staff = [...latestData.staff];
+      const boothId = effectiveBoothFilter();
+      if (boothId) staff = staff.filter(member => !member.assignedBoothId || member.assignedBoothId === boothId);
+
+      container.innerHTML = staff.map(member => `
+        <article class="card">
+          <div class="card-title">
+            <span>${escapeHtml(member.staffName || member.staffId)}</span>
+            <span class="chip ${statusChipClass(member.status)}">${escapeHtml(statusLabel(member.status))}</span>
+          </div>
+          <div class="kv">
+            <div class="row"><span>役割</span><span>${escapeHtml(member.role || '-')}</span></div>
+            <div class="row"><span>担当ブース</span><span>${escapeHtml(member.assignedBoothId || '-')}</span></div>
+            <div class="row"><span>シフト</span><span>${escapeHtml(member.shiftStart || '-')} - ${escapeHtml(member.shiftEnd || '-')}</span></div>
+            <div class="row"><span>現在地</span><span>${escapeHtml(member.currentLocation || '-')}</span></div>
+          </div>
+        </article>
+      `).join('');
+    }
+
+    function effectiveBoothFilter() {
+      if (state.boothFilter) return state.boothFilter;
+      const view = getSelectedView();
+      return view?.filters?.boothId || '';
+    }
+
+    function sortBooths(list, mode) {
+      const sorted = [...list];
+      if (mode === 'wait_desc') return sorted.sort((a, b) => num(b.waitCount) - num(a.waitCount));
+      if (mode === 'wait_asc') return sorted.sort((a, b) => num(a.waitCount) - num(b.waitCount));
+      if (mode === 'name_asc') return sorted.sort((a, b) => String(a.boothName || '').localeCompare(String(b.boothName || ''), 'ja'));
+      if (mode === 'next_start_asc') return sorted.sort((a, b) => compareTime(a.nextStartTime, b.nextStartTime));
+      return sorted.sort((a, b) => statusWeight(b.currentStatus) - statusWeight(a.currentStatus) || num(b.waitCount) - num(a.waitCount));
+    }
+
+    function sortTimeline(list, mode) {
+      const sorted = [...list];
+      if (mode === 'priority_desc') return sorted.sort((a, b) => priorityWeight(b.priority) - priorityWeight(a.priority) || compareTime(a.startTime, b.startTime));
+      if (mode === 'status_priority') return sorted.sort((a, b) => statusWeight(b.status) - statusWeight(a.status) || compareTime(a.startTime, b.startTime));
+      return sorted.sort((a, b) => compareTime(a.startTime, b.startTime));
+    }
+
+    function setupDragAndDrop() {
+      const root = document.getElementById('sectionsRoot');
+      root.querySelectorAll('.section').forEach(section => {
+        section.addEventListener('dragstart', event => {
+          dragSource = section;
+          section.classList.add('dragging');
+          event.dataTransfer.effectAllowed = 'move';
+          event.dataTransfer.setData('text/plain', section.dataset.sectionId);
+        });
+
+        section.addEventListener('dragend', () => {
+          section.classList.remove('dragging');
+          dragSource = null;
+        });
+
+        section.addEventListener('dragover', event => {
+          event.preventDefault();
+          const current = section;
+          if (!dragSource || dragSource === current) return;
+          const rect = current.getBoundingClientRect();
+          const before = event.clientY < rect.top + rect.height / 2;
+          if (before) {
+            root.insertBefore(dragSource, current);
+          } else {
+            root.insertBefore(dragSource, current.nextSibling);
+          }
+        });
+
+        section.addEventListener('drop', event => {
+          event.preventDefault();
+          updateSectionOrderFromDOM();
+        });
+      });
+    }
+
+    function updateSectionOrderFromDOM() {
+      const root = document.getElementById('sectionsRoot');
+      state.sectionOrder = [...root.querySelectorAll('.section')].map(el => el.dataset.sectionId);
+      saveState();
+      renderSectionToggles();
+    }
+
+    function resetRefreshTimer() {
+      if (refreshTimer) clearInterval(refreshTimer);
+      const seconds = Number(latestData?.meta?.refreshSeconds || 10);
+      refreshTimer = setInterval(loadData, Math.max(seconds, 5) * 1000);
+    }
+
+    function compareTime(a, b) {
+      const toMinutes = value => {
+        if (!value) return Number.MAX_SAFE_INTEGER;
+        const text = String(value);
+        const match = text.match(/(\d{1,2}):(\d{2})/);
+        if (!match) return Number.MAX_SAFE_INTEGER;
+        return Number(match[1]) * 60 + Number(match[2]);
+      };
+      return toMinutes(a) - toMinutes(b);
     }
 
     function num(value) {
       const n = Number(value);
-      return isNaN(n) ? 0 : n;
+      return Number.isFinite(n) ? n : 0;
+    }
+
+    function statusWeight(value) {
+      const map = {
+        critical: 100,
+        delayed: 90,
+        full: 80,
+        busy: 70,
+        running: 65,
+        open: 60,
+        warn: 55,
+        scheduled: 40,
+        prep: 35,
+        ready: 34,
+        doing: 33,
+        active: 32,
+        open_waiting: 31,
+        paused: 20,
+        break: 15,
+        done: 10,
+        ended: 9,
+        closed: 8,
+        cancelled: 5,
+        absent: 1
+      };
+      return map[String(value || '').toLowerCase()] || 0;
+    }
+
+    function priorityWeight(value) {
+      const map = { urgent: 40, high: 30, normal: 20, low: 10 };
+      return map[String(value || '').toLowerCase()] || 0;
+    }
+
+    function phaseLabel(value) {
+      const map = {
+        pre_open: '開場前',
+        open: '受付中',
+        running: '進行中',
+        paused: '一時停止',
+        closing: '閉場準備',
+        closed: '終了'
+      };
+      return map[value] || value || '-';
+    }
+
+    function statusLabel(value) {
+      const map = {
+        prep: '準備中',
+        open: '受付中',
+        busy: '混雑',
+        full: '満席',
+        paused: '一時停止',
+        closed: '終了',
+        scheduled: '予定',
+        running: '進行中',
+        done: '完了',
+        delayed: '遅延',
+        cancelled: '中止',
+        ready: '待機',
+        active: '対応中',
+        break: '休憩中',
+        absent: '不在',
+        todo: '未着手',
+        doing: '進行中',
+        blocked: '要対応',
+        ended: '終了'
+      };
+      return map[value] || value || '-';
+    }
+
+    function statusChipClass(value) {
+      const s = String(value || '').toLowerCase();
+      if (['open', 'running', 'done', 'ready', 'active'].includes(s)) return 'ok';
+      if (['busy', 'warn', 'delayed', 'blocked'].includes(s)) return 'warn';
+      if (['full', 'critical', 'cancelled', 'absent'].includes(s)) return 'danger';
+      if (['paused', 'break'].includes(s)) return 'pause';
+      return 'muted';
+    }
+
+    function alertLevelChip(level) {
+      const s = String(level || '').toLowerCase();
+      if (s === 'critical') return 'danger';
+      if (s === 'warn') return 'warn';
+      return 'pause';
+    }
+
+    function sectionLabel(id) {
+      const map = {
+        alerts: '重要アラート',
+        booths: 'ブース状況',
+        sessions: '体験枠',
+        timeline: '進行タイムライン',
+        tasks: '運営タスク',
+        staff: 'スタッフ配置'
+      };
+      return map[id] || id;
+    }
+
+    function formatDateTime(value) {
+      if (!value) return '-';
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return String(value);
+      return date.toLocaleString('ja-JP');
     }
 
     function escapeHtml(str) {
-      return String(str ?? "")
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#039;");
+      return String(str ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
     }
 
-    loadData();
-    setInterval(loadData, refreshSeconds * 1000);
+    boot();
   </script>
 </body>
 </html>
