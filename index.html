@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>イベント進行モニター</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: sans-serif;
+      background: #111827;
+      color: #f9fafb;
+    }
+    header {
+      padding: 16px 20px;
+      background: #1f2937;
+      border-bottom: 1px solid #374151;
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: 24px;
+    }
+    .sub {
+      color: #d1d5db;
+      font-size: 14px;
+    }
+    .wrap {
+      padding: 16px;
+      display: grid;
+      gap: 16px;
+    }
+    .card {
+      background: #1f2937;
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 4px 12px rgba(0,0,0,.2);
+    }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+    .badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: bold;
+    }
+    .green { background: #065f46; }
+    .yellow { background: #92400e; }
+    .red { background: #991b1b; }
+    .blue { background: #1d4ed8; }
+    .gray { background: #4b5563; }
+
+    .status-open { color: #34d399; }
+    .status-busy { color: #fbbf24; }
+    .status-full { color: #f87171; }
+    .status-paused { color: #60a5fa; }
+    .status-closed { color: #9ca3af; }
+
+    .alert-info { border-left: 6px solid #60a5fa; }
+    .alert-warn { border-left: 6px solid #f59e0b; }
+    .alert-critical { border-left: 6px solid #ef4444; }
+
+    .small {
+      font-size: 12px;
+      color: #cbd5e1;
+    }
+
+    .timeline-item, .booth-item, .session-item {
+      padding: 10px 0;
+      border-bottom: 1px solid #374151;
+    }
+    .timeline-item:last-child,
+    .booth-item:last-child,
+    .session-item:last-child {
+      border-bottom: none;
+    }
+
+    @media (max-width: 900px) {
+      .grid-2, .grid-3 {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1 id="eventName">読み込み中...</h1>
+    <div class="sub" id="eventMeta"></div>
+    <div class="sub" id="publicMessage"></div>
+  </header>
+
+  <div class="wrap">
+    <div class="grid-3">
+      <div class="card">
+        <div class="small">現在フェーズ</div>
+        <div id="currentPhase">-</div>
+      </div>
+      <div class="card">
+        <div class="small">次の重要項目</div>
+        <div id="nextImportant">-</div>
+      </div>
+      <div class="card">
+        <div class="small">最終更新</div>
+        <div id="generatedAt">-</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>重要アラート</h2>
+      <div id="alerts">アラートなし</div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <h2>ブース状況</h2>
+        <div id="booths">読み込み中...</div>
+      </div>
+
+      <div class="card">
+        <h2>今後の進行</h2>
+        <div id="timeline">読み込み中...</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>体験枠</h2>
+      <div id="sessions">読み込み中...</div>
+    </div>
+  </div>
+
+  <script>
+    const GAS_URL = "YOUR_GAS_WEBAPP_URL?mode=public";
+    let refreshSeconds = 10;
+
+    async function loadData() {
+      try {
+        const res = await fetch(GAS_URL, { cache: "no-store" });
+        const data = await res.json();
+
+        refreshSeconds = data?.meta?.refreshSeconds || 10;
+
+        renderMeta(data);
+        renderAlerts(data.alerts || []);
+        renderBooths(data.booths || []);
+        renderTimeline(data.timeline || []);
+        renderSessions(data.sessions || []);
+
+      } catch (err) {
+        console.error(err);
+        document.getElementById("eventName").textContent = "読み込み失敗";
+      }
+    }
+
+    function renderMeta(data) {
+      const meta = data.meta || {};
+      const summary = data.summary || {};
+
+      document.getElementById("eventName").textContent = meta.eventName || "イベント進行モニター";
+      document.getElementById("eventMeta").textContent =
+        `${meta.eventDate || ""} / ${meta.venueName || ""}`;
+      document.getElementById("publicMessage").textContent = meta.publicMessage || "";
+
+      document.getElementById("currentPhase").textContent = toPhaseLabel(meta.currentPhase);
+
+      const next = summary.nextImportantItem;
+      document.getElementById("nextImportant").textContent =
+        next ? `${next.startTime || ""} ${next.title || ""}` : "なし";
+
+      document.getElementById("generatedAt").textContent =
+        summary.generatedAt || data.generatedAt || "-";
+    }
+
+    function renderAlerts(alerts) {
+      const el = document.getElementById("alerts");
+      if (!alerts.length) {
+        el.innerHTML = "<div>現在アラートはありません</div>";
+        return;
+      }
+
+      el.innerHTML = alerts.map(alert => `
+        <div class="card alert-${escapeHtml(alert.level || 'info')}" style="margin-bottom:12px;">
+          <div><strong>${escapeHtml(alert.title || '')}</strong></div>
+          <div>${escapeHtml(alert.message || '')}</div>
+        </div>
+      `).join("");
+    }
+
+    function renderBooths(booths) {
+      const el = document.getElementById("booths");
+      if (!booths.length) {
+        el.innerHTML = "<div>表示対象のブースがありません</div>";
+        return;
+      }
+
+      el.innerHTML = booths.map(booth => `
+        <div class="booth-item">
+          <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;">
+            <strong>${escapeHtml(booth.boothName || '')}</strong>
+            <span class="badge ${colorClass(booth.displayColor)}">${escapeHtml(booth.currentStatus || '')}</span>
+          </div>
+          <div class="small">${escapeHtml(booth.areaName || '')} / ${escapeHtml(booth.locationText || '')}</div>
+          <div>現在: <span class="${statusClass(booth.currentStatus)}">${escapeHtml(booth.currentProgram || '-')}</span></div>
+          <div>待機人数: ${num(booth.waitCount)} / 定員: ${num(booth.capacity)} / 参加中: ${num(booth.occupiedCount)}</div>
+          <div>次回: ${escapeHtml(booth.nextStartTime || '-')}</div>
+          <div>${escapeHtml(booth.publicNote || '')}</div>
+        </div>
+      `).join("");
+    }
+
+    function renderTimeline(timeline) {
+      const el = document.getElementById("timeline");
+      if (!timeline.length) {
+        el.innerHTML = "<div>進行データがありません</div>";
+        return;
+      }
+
+      el.innerHTML = timeline.map(item => `
+        <div class="timeline-item">
+          <div><strong>${escapeHtml(item.startTime || '')} - ${escapeHtml(item.endTime || '')}</strong></div>
+          <div>${escapeHtml(item.title || '')}</div>
+          <div class="small">状態: ${escapeHtml(item.status || '')} / 担当: ${escapeHtml(item.owner || '')}</div>
+        </div>
+      `).join("");
+    }
+
+    function renderSessions(sessions) {
+      const el = document.getElementById("sessions");
+      if (!sessions.length) {
+        el.innerHTML = "<div>体験枠データがありません</div>";
+        return;
+      }
+
+      el.innerHTML = sessions.map(session => `
+        <div class="session-item">
+          <div style="display:flex;justify-content:space-between;gap:12px;">
+            <strong>${escapeHtml(session.title || '')}</strong>
+            <span>${escapeHtml(session.status || '')}</span>
+          </div>
+          <div>${escapeHtml(session.startTime || '')} - ${escapeHtml(session.endTime || '')}</div>
+          <div>予約 ${num(session.reservedCount)} / 定員 ${num(session.capacity)} / 受付 ${num(session.checkedInCount)}</div>
+          <div class="small">${escapeHtml(session.publicNote || '')}</div>
+        </div>
+      `).join("");
+    }
+
+    function toPhaseLabel(value) {
+      const map = {
+        pre_open: "開場前",
+        open: "受付中",
+        running: "進行中",
+        paused: "一時停止",
+        closing: "閉場準備",
+        closed: "終了"
+      };
+      return map[value] || value || "-";
+    }
+
+    function statusClass(status) {
+      const s = String(status || "").toLowerCase();
+      return `status-${s}`;
+    }
+
+    function colorClass(color) {
+      const c = String(color || "").toLowerCase();
+      if (["green", "yellow", "red", "blue"].includes(c)) return c;
+      return "gray";
+    }
+
+    function num(value) {
+      const n = Number(value);
+      return isNaN(n) ? 0 : n;
+    }
+
+    function escapeHtml(str) {
+      return String(str ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    loadData();
+    setInterval(loadData, refreshSeconds * 1000);
+  </script>
+</body>
+</html>
