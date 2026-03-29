@@ -559,79 +559,91 @@
       await loadData();
     }
 
-    function loadData() {
-      try {
-        if (jsonpScript) {
-          jsonpScript.remove();
-          jsonpScript = null;
-        }
-        if (jsonpTimer) {
-          clearTimeout(jsonpTimer);
-          jsonpTimer = null;
-        }
-
-        window[JSONP_CALLBACK_NAME] = function(data) {
-          console.log('JSONP callback fired', data);
-          try {
-            latestData = normalizeData(data);
-            fillViewOptions();
-            fillBoothFilterOptions();
-            syncControlsFromState();
-            renderAll();
-            resetRefreshTimer();
-} catch (error) {
-  console.error(error);
-  document.getElementById('eventName').textContent = 'データの読み込みに失敗しました';
-  document.getElementById('eventMeta').textContent = String(error.message || error);
-} finally {
-            if (jsonpScript) {
-              jsonpScript.remove();
-              jsonpScript = null;
-            }
-            if (jsonpTimer) {
-              clearTimeout(jsonpTimer);
-              jsonpTimer = null;
-            }
-          }
-        };
-
-        const separator = GAS_URL.includes('?') ? '&' : '?';
-        const src = `${GAS_URL}${separator}callback=${encodeURIComponent(JSONP_CALLBACK_NAME)}&_ts=${Date.now()}`;
-
-        jsonpScript = document.createElement('script');
-        jsonpScript.src = src;
-        jsonpScript.async = true;
-jsonpScript.onerror = function() {
-  console.error('JSONP load failed:', src);
-  document.getElementById('eventName').textContent = 'データの読み込みに失敗しました';
-  document.getElementById('eventMeta').textContent = 'JSONP load failed';
-  if (jsonpScript) {
-    jsonpScript.remove();
-    jsonpScript = null;
-  }
-  if (jsonpTimer) {
-    clearTimeout(jsonpTimer);
-    jsonpTimer = null;
-  }
-};
-
-jsonpTimer = setTimeout(() => {
-  console.error('JSONP timeout:', src);
-  document.getElementById('eventName').textContent = 'データの読み込みに失敗しました';
-  document.getElementById('eventMeta').textContent = 'JSONP timeout';
-  if (jsonpScript) {
-    jsonpScript.remove();
-    jsonpScript = null;
-  }
-}, 10000);
-
-        document.body.appendChild(jsonpScript);
-} catch (error) {
-  console.error(error);
-  document.getElementById('eventName').textContent = 'データの読み込みに失敗しました';
-  document.getElementById('eventMeta').textContent = String(error.message || error);
-}
+function loadData() {
+  try {
+    if (jsonpScript) {
+      jsonpScript.remove();
+      jsonpScript = null;
     }
+    if (jsonpTimer) {
+      clearTimeout(jsonpTimer);
+      jsonpTimer = null;
+    }
+
+    const callbackName =
+      'eventMonitorJsonp_' +
+      Date.now() +
+      '_' +
+      Math.random().toString(36).slice(2);
+
+    const separator = GAS_URL.includes('?') ? '&' : '?';
+    const src =
+      `${GAS_URL}${separator}callback=${callbackName}&_ts=${Date.now()}`;
+
+    const cleanup = () => {
+      if (jsonpScript) {
+        jsonpScript.remove();
+        jsonpScript = null;
+      }
+      if (jsonpTimer) {
+        clearTimeout(jsonpTimer);
+        jsonpTimer = null;
+      }
+      try {
+        delete window[callbackName];
+      } catch (_) {}
+    };
+
+    console.log('JSONP request src =', src);
+    console.log('JSONP callbackName =', callbackName);
+
+    window[callbackName] = function (data) {
+      console.log('JSONP callback fired', data);
+      try {
+        latestData = normalizeData(data);
+        fillViewOptions();
+        fillBoothFilterOptions();
+        syncControlsFromState();
+        renderAll();
+        resetRefreshTimer();
+      } catch (error) {
+        console.error(error);
+        document.getElementById('eventName').textContent = 'データの読み込みに失敗しました';
+        document.getElementById('eventMeta').textContent = String(error.message || error);
+      } finally {
+        cleanup();
+      }
+    };
+
+    jsonpScript = document.createElement('script');
+    jsonpScript.src = src;
+    jsonpScript.async = true;
+
+    jsonpScript.onload = function () {
+      console.log('JSONP script loaded:', src);
+    };
+
+    jsonpScript.onerror = function (ev) {
+      console.error('JSONP load failed:', src, ev);
+      document.getElementById('eventName').textContent = 'データの読み込みに失敗しました';
+      document.getElementById('eventMeta').textContent = 'JSONP load failed';
+      cleanup();
+    };
+
+    jsonpTimer = setTimeout(() => {
+      console.error('JSONP timeout:', src);
+      document.getElementById('eventName').textContent = 'データの読み込みに失敗しました';
+      document.getElementById('eventMeta').textContent = 'JSONP timeout';
+      cleanup();
+    }, 15000);
+
+    document.head.appendChild(jsonpScript);
+  } catch (error) {
+    console.error(error);
+    document.getElementById('eventName').textContent = 'データの読み込みに失敗しました';
+    document.getElementById('eventMeta').textContent = String(error.message || error);
+  }
+}
 
     function normalizeData(data) {
       const cloned = structuredCloneSafe(data);
