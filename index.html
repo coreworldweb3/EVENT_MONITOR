@@ -614,14 +614,15 @@ jsonpScript.onerror = function() {
   }
 };
 
-        jsonpTimer = setTimeout(() => {
-          console.error('JSONP timeout:', src);
-          document.getElementById('eventName').textContent = 'データの読み込みに失敗しました';
-          if (jsonpScript) {
-            jsonpScript.remove()
-            jsonpScript = null;
-          }
-        }, 10000);
+jsonpTimer = setTimeout(() => {
+  console.error('JSONP timeout:', src);
+  document.getElementById('eventName').textContent = 'データの読み込みに失敗しました';
+  document.getElementById('eventMeta').textContent = 'JSONP timeout';
+  if (jsonpScript) {
+    jsonpScript.remove();
+    jsonpScript = null;
+  }
+}, 10000);
 
         document.body.appendChild(jsonpScript);
 } catch (error) {
